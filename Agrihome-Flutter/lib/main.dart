@@ -1,0 +1,1399 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+void main() {
+  runApp(const AgrihomeApp());
+}
+
+class AgrihomeApp extends StatelessWidget {
+  const AgrihomeApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Agrihome',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: Colors.green,
+        useMaterial3: true,
+        brightness: Brightness.light,
+      ),
+      home: const AgrihomeHomePage(),
+    );
+  }
+}
+
+enum ConnectionMode { none, mqtt, ble }
+
+class AgrihomeHomePage extends StatefulWidget {
+  const AgrihomeHomePage({super.key});
+
+  @override
+  State<AgrihomeHomePage> createState() => _AgrihomeHomePageState();
+}
+
+class _AgrihomeHomePageState extends State<AgrihomeHomePage> {
+  // ==========================
+  // MQTT
+  // ==========================
+
+  final String mqttHost = 'IP en cuestion';
+  final int mqttPort = 1883;
+
+  final String topicTelemetry = 'agrihome/telemetry';
+  final String topicStatus = 'agrihome/status';
+  final String topicCommand = 'agrihome/cmd';
+
+  late final String clientId;
+  MqttServerClient? mqttClient;
+  bool mqttConnected = false;
+  bool mqttListenerStarted = false;
+
+  // ==========================
+  // BLE
+  // ==========================
+
+  final Guid bleServiceUuid = Guid('12345678-1234-1234-1234-1234567890ab');
+  final Guid bleTelemetryUuid = Guid('12345678-1234-1234-1234-1234567890ac');
+  final Guid bleCommandUuid = Guid('12345678-1234-1234-1234-1234567890ad');
+  final Guid bleStateUuid = Guid('12345678-1234-1234-1234-1234567890ae');
+  final Guid bleConfigUuid = Guid('12345678-1234-1234-1234-1234567890af');
+
+  BluetoothDevice? bleDevice;
+  BluetoothCharacteristic? bleTelemetryChar;
+  BluetoothCharacteristic? bleCommandChar;
+  BluetoothCharacteristic? bleStateChar;
+  BluetoothCharacteristic? bleConfigChar;
+
+  StreamSubscription<List<ScanResult>>? scanSub;
+  StreamSubscription<List<int>>? bleTelemetrySub;
+  StreamSubscription<BluetoothConnectionState>? bleStateSub;
+  Timer? blePollTimer;
+
+  String bleRxBuffer = "";
+
+  bool bleOperationInProgress = false;
+
+  bool bleConnected = false;
+  bool scanningBle = false;
+
+  ConnectionMode activeMode = ConnectionMode.none;
+
+  // ==========================
+  // Estado UI
+  // ==========================
+
+  String connectionText = 'Desconectado';
+  String lastAck = 'Sin ACK';
+
+  bool configDirty = false;
+  bool syncFieldsFromEsp32 = true;
+
+  // ==========================
+  // Sensores
+  // ==========================
+
+  int soil1Raw = 0;
+  int soil2Raw = 0;
+  int soilAvgRaw = 0;
+  int uvRaw = 0;
+  int wifiRssi = 0;
+  int uptimeMs = 0;
+
+  double lux = 0;
+  double temperatureC = 0;
+  double humidityPct = 0;
+
+  // ==========================
+  // Actuadores / estados
+  // ==========================
+
+  bool pumpState = false;
+  bool ledsState = false;
+  bool modoAutonomo = false;
+
+  bool soil1Dry = false;
+  bool soil2Dry = false;
+  bool anySoilDry = false;
+  bool lowLight = false;
+  bool autoPumpRunning = false;
+
+  int soilDryThreshold = 1500;
+  double luxLowThreshold = 100;
+  int pumpOnTimeMs = 3000;
+  int pumpCooldownMs = 15000;
+
+  int currentHour = 12;
+  int currentMinute = 0;
+  bool nightModeEnabled = true;
+  int nightStartHour = 20;
+  int nightEndHour = 6;
+  bool nightTime = false;
+  bool ledsBlockedByNight = false;
+
+  // ==========================
+  // Controladores configuración
+  // ==========================
+
+  final soilThresholdController = TextEditingController(text: '1500');
+  final luxThresholdController = TextEditingController(text: '100');
+  final pumpOnController = TextEditingController(text: '3');
+  final pumpCooldownController = TextEditingController(text: '0.0042');
+  final currentHourController = TextEditingController(text: '12');
+  final currentMinuteController = TextEditingController(text: '0');
+  final nightStartController = TextEditingController(text: '20');
+  final nightEndController = TextEditingController(text: '6');
+
+  final soilFocus = FocusNode();
+  final luxFocus = FocusNode();
+  final pumpOnFocus = FocusNode();
+  final pumpCooldownFocus = FocusNode();
+  final currentHourFocus = FocusNode();
+  final currentMinuteFocus = FocusNode();
+  final nightStartFocus = FocusNode();
+  final nightEndFocus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    clientId = 'agrihome_android_${Random().nextInt(999999)}';
+    connectMqtt();
+  }
+
+  @override
+  void dispose() {
+    try {
+      mqttClient?.disconnect();
+    } catch (_) {}
+
+    scanSub?.cancel();
+    bleTelemetrySub?.cancel();
+    bleStateSub?.cancel();
+    blePollTimer?.cancel();
+
+    try {
+      bleDevice?.disconnect();
+    } catch (_) {}
+
+    soilThresholdController.dispose();
+    luxThresholdController.dispose();
+    pumpOnController.dispose();
+    pumpCooldownController.dispose();
+    currentHourController.dispose();
+    currentMinuteController.dispose();
+    nightStartController.dispose();
+    nightEndController.dispose();
+
+    soilFocus.dispose();
+    luxFocus.dispose();
+    pumpOnFocus.dispose();
+    pumpCooldownFocus.dispose();
+    currentHourFocus.dispose();
+    currentMinuteFocus.dispose();
+    nightStartFocus.dispose();
+    nightEndFocus.dispose();
+
+    super.dispose();
+  }
+
+  void markConfigDirty() {
+    configDirty = true;
+    syncFieldsFromEsp32 = false;
+  }
+
+  // ==========================
+  // MQTT
+  // ==========================
+
+  Future<void> connectMqtt() async {
+    setState(() {
+      mqttConnected = false;
+      connectionText = 'Conectando por MQTT...';
+    });
+
+    mqttListenerStarted = false;
+
+    try {
+      mqttClient?.disconnect();
+    } catch (_) {}
+
+    mqttClient = MqttServerClient(mqttHost, clientId);
+    mqttClient!.port = mqttPort;
+    mqttClient!.logging(on: false);
+    mqttClient!.keepAlivePeriod = 15;
+    mqttClient!.disconnectOnNoResponsePeriod = 10;
+    mqttClient!.autoReconnect = true;
+    mqttClient!.resubscribeOnAutoReconnect = true;
+
+    mqttClient!.onConnected = onMqttConnected;
+    mqttClient!.onDisconnected = onMqttDisconnected;
+    mqttClient!.onAutoReconnect = () {
+      if (!mounted) return;
+      setState(() {
+        connectionText = 'Reconectando MQTT...';
+      });
+    };
+    mqttClient!.onAutoReconnected = () {
+      if (!mounted) return;
+      setState(() {
+        mqttConnected = true;
+        activeMode = ConnectionMode.mqtt;
+        connectionText = 'MQTT reconectado';
+      });
+    };
+
+    final connMessage = MqttConnectMessage()
+        .withClientIdentifier(clientId)
+        .startClean()
+        .withWillQos(MqttQos.atMostOnce);
+
+    mqttClient!.connectionMessage = connMessage;
+
+    try {
+      await mqttClient!.connect();
+    } catch (e) {
+      try {
+        mqttClient!.disconnect();
+      } catch (_) {}
+
+      if (!mounted) return;
+      setState(() {
+        mqttConnected = false;
+        if (!bleConnected) activeMode = ConnectionMode.none;
+        connectionText = 'Error MQTT: $e';
+      });
+      return;
+    }
+
+    if (mqttClient!.connectionStatus?.state != MqttConnectionState.connected) {
+      if (!mounted) return;
+      setState(() {
+        mqttConnected = false;
+        if (!bleConnected) activeMode = ConnectionMode.none;
+        connectionText = 'MQTT no conectado: ${mqttClient!.connectionStatus?.state}';
+      });
+    }
+  }
+
+  void onMqttConnected() {
+    if (!mounted) return;
+
+    setState(() {
+      mqttConnected = true;
+      activeMode = ConnectionMode.mqtt;
+      connectionText = 'MQTT conectado a $mqttHost:$mqttPort';
+    });
+
+    mqttClient!.subscribe(topicTelemetry, MqttQos.atMostOnce);
+    mqttClient!.subscribe(topicStatus, MqttQos.atMostOnce);
+
+    if (!mqttListenerStarted) {
+      mqttListenerStarted = true;
+
+      mqttClient!.updates?.listen((messages) {
+        if (messages.isEmpty) return;
+
+        final message = messages.first;
+        final publishMessage = message.payload as MqttPublishMessage;
+
+        final payload = MqttPublishPayload.bytesToStringAsString(
+          publishMessage.payload.message,
+        );
+
+        if (message.topic == topicTelemetry) {
+          processTelemetry(payload);
+        }
+
+        if (message.topic == topicStatus) {
+          processStatus(payload);
+        }
+      });
+    }
+
+    sendCommand('STATUS');
+  }
+
+  void onMqttDisconnected() {
+    if (!mounted) return;
+
+    setState(() {
+      mqttConnected = false;
+      if (!bleConnected) activeMode = ConnectionMode.none;
+      connectionText = 'MQTT desconectado';
+    });
+  }
+
+  bool isMqttConnected() {
+    return mqttClient != null &&
+        mqttClient!.connectionStatus?.state == MqttConnectionState.connected;
+  }
+
+  // ==========================
+  // BLE
+  // ==========================
+
+  Future<void> requestBlePermissions() async {
+    await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.locationWhenInUse,
+    ].request();
+  }
+
+  Future<void> connectBle() async {
+    await requestBlePermissions();
+
+    try {
+      final adapterState = await FlutterBluePlus.adapterState.first;
+      if (adapterState != BluetoothAdapterState.on) {
+        if (!mounted) return;
+        setState(() {
+          scanningBle = false;
+          connectionText = 'Bluetooth apagado. Activa Bluetooth y Ubicación.';
+        });
+        return;
+      }
+    } catch (_) {}
+
+    setState(() {
+      scanningBle = true;
+      bleConnected = false;
+      connectionText = 'Buscando Agrihome_BLE...';
+    });
+
+    await scanSub?.cancel();
+
+    try {
+      await FlutterBluePlus.stopScan();
+    } catch (_) {}
+
+    bool found = false;
+
+    scanSub = FlutterBluePlus.scanResults.listen((results) async {
+      if (found) return;
+
+      for (final result in results) {
+        final deviceName = result.device.platformName;
+        final advName = result.advertisementData.advName;
+        final localName = result.advertisementData.advName;
+        final serviceUuids = result.advertisementData.serviceUuids;
+
+        final bool nameMatches =
+            deviceName.toLowerCase().contains('agrihome') ||
+            advName.toLowerCase().contains('agrihome') ||
+            localName.toLowerCase().contains('agrihome');
+
+        final bool uuidMatches = serviceUuids.any(
+          (uuid) => uuid.toString().toLowerCase() ==
+              bleServiceUuid.toString().toLowerCase(),
+        );
+
+        if (nameMatches || uuidMatches) {
+          found = true;
+
+          try {
+            await FlutterBluePlus.stopScan();
+          } catch (_) {}
+
+          await scanSub?.cancel();
+          await connectToBleDevice(result.device);
+          return;
+        }
+      }
+    });
+
+    try {
+      // Escaneo abierto. En algunos teléfonos Android, filtrar por UUID impide
+      // ver el ESP32 aunque esté anunciando correctamente el servicio.
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        scanningBle = false;
+        connectionText = 'Error BLE scan: $e';
+      });
+      return;
+    }
+
+    await Future.delayed(const Duration(seconds: 15));
+
+    if (!found && !bleConnected && mounted) {
+      setState(() {
+        scanningBle = false;
+        connectionText = 'No se encontró Agrihome_BLE';
+      });
+    }
+  }
+
+  Future<void> connectToBleDevice(BluetoothDevice device) async {
+    setState(() {
+      connectionText = 'Conectando BLE...';
+    });
+
+    bleDevice = device;
+    bleRxBuffer = '';
+
+    blePollTimer?.cancel();
+    blePollTimer = null;
+
+    await bleTelemetrySub?.cancel();
+    bleTelemetrySub = null;
+
+    try {
+      await bleDevice!.disconnect();
+      await Future.delayed(const Duration(milliseconds: 700));
+    } catch (_) {}
+
+    try {
+      await bleDevice!.connect(
+        timeout: const Duration(seconds: 15),
+        autoConnect: false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        bleConnected = false;
+        scanningBle = false;
+        connectionText = 'Error conectando BLE: $e';
+      });
+      return;
+    }
+
+    await bleStateSub?.cancel();
+    bleStateSub = bleDevice!.connectionState.listen((state) {
+      if (!mounted) return;
+
+      if (state == BluetoothConnectionState.disconnected) {
+        blePollTimer?.cancel();
+        setState(() {
+          bleConnected = false;
+          bleRxBuffer = '';
+
+          if (mqttConnected) {
+            activeMode = ConnectionMode.mqtt;
+            connectionText = 'BLE desconectado. MQTT disponible.';
+          } else {
+            activeMode = ConnectionMode.none;
+            connectionText = 'BLE desconectado';
+          }
+        });
+      }
+    });
+
+    try {
+      // V13: dejamos MTU negociado por Android/ESP32.
+    } catch (_) {}
+
+    await Future.delayed(const Duration(milliseconds: 900));
+
+    final services = await bleDevice!.discoverServices();
+
+    bleTelemetryChar = null;
+    bleCommandChar = null;
+    bleStateChar = null;
+    bleConfigChar = null;
+
+    for (final service in services) {
+      for (final c in service.characteristics) {
+        final id = c.uuid.toString().toLowerCase();
+        if (id == bleTelemetryUuid.toString().toLowerCase()) {
+          bleTelemetryChar = c;
+        }
+        if (id == bleCommandUuid.toString().toLowerCase()) {
+          bleCommandChar = c;
+        }
+        if (id == bleStateUuid.toString().toLowerCase()) {
+          bleStateChar = c;
+        }
+        if (id == bleConfigUuid.toString().toLowerCase()) {
+          bleConfigChar = c;
+        }
+      }
+    }
+
+    if (bleTelemetryChar == null ||
+        bleCommandChar == null ||
+        bleStateChar == null ||
+        bleConfigChar == null) {
+      if (!mounted) return;
+      setState(() {
+        bleConnected = false;
+        scanningBle = false;
+        connectionText = 'BLE conectado, pero características V12 no encontradas';
+      });
+      try {
+        await bleDevice?.disconnect();
+      } catch (_) {}
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      bleConnected = true;
+      scanningBle = false;
+      activeMode = ConnectionMode.ble;
+      connectionText = 'BLE conectado a Agrihome_BLE';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 1200));
+    await readBlePackets();
+
+    blePollTimer?.cancel();
+    blePollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (activeMode == ConnectionMode.ble && isBleReady()) {
+        await readBlePackets();
+      }
+    });
+  }
+
+  Future<void> readBlePackets() async {
+    if (!isBleReady() || bleTelemetryChar == null || bleStateChar == null || bleConfigChar == null) {
+      return;
+    }
+
+    if (bleOperationInProgress) return;
+    bleOperationInProgress = true;
+
+    Future<void> readOne(BluetoothCharacteristic c, String name) async {
+      final bytes = await c.read();
+      await Future.delayed(const Duration(milliseconds: 180));
+      if (bytes.isEmpty) return;
+      final text = utf8.decode(bytes, allowMalformed: true).trim();
+      if (text.startsWith('{') && text.endsWith('}')) {
+        processTelemetry(text);
+      } else {
+        debugPrint('BLE $name incompleto/no JSON: $text');
+      }
+    }
+
+    try {
+      await readOne(bleTelemetryChar!, 'sensores');
+      await readOne(bleStateChar!, 'estados');
+      await readOne(bleConfigChar!, 'config');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        lastAck = 'Error leyendo BLE: $e';
+      });
+    } finally {
+      bleOperationInProgress = false;
+    }
+  }
+
+  Future<void> disconnectBle() async {
+    try {
+      blePollTimer?.cancel();
+      blePollTimer = null;
+
+      await bleTelemetrySub?.cancel();
+      bleTelemetrySub = null;
+      await bleStateSub?.cancel();
+      bleRxBuffer = '';
+      await bleDevice?.disconnect();
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() {
+      bleConnected = false;
+
+      if (mqttConnected) {
+        activeMode = ConnectionMode.mqtt;
+        connectionText = 'MQTT conectado a $mqttHost:$mqttPort';
+      } else {
+        activeMode = ConnectionMode.none;
+        connectionText = 'BLE desconectado';
+      }
+    });
+  }
+
+  bool isBleReady() {
+    return bleConnected && bleCommandChar != null;
+  }
+
+  // ==========================
+  // BLE: reensamblado de JSON fragmentado
+  // ==========================
+
+  void handleBleBytes(List<int> value) {
+    if (value.isEmpty) return;
+
+    final text = utf8.decode(value, allowMalformed: true).trim();
+    if (!text.startsWith('{') || !text.endsWith('}')) {
+      return;
+    }
+
+    processTelemetry(text);
+  }
+
+  bool toBool(dynamic value, {bool fallback = false}) {
+    if (value == null) return fallback;
+    if (value is bool) return value;
+    if (value is int) return value != 0;
+    if (value is double) return value != 0;
+    final s = value.toString().toLowerCase().trim();
+    return s == 'true' || s == '1' || s == 'on' || s == 'si' || s == 'sí';
+  }
+
+  dynamic pick(Map<String, dynamic> d, List<String> keys) {
+    for (final k in keys) {
+      if (d.containsKey(k)) return d[k];
+    }
+    return null;
+  }
+
+  bool hasAny(Map<String, dynamic> d, List<String> keys) {
+    for (final k in keys) {
+      if (d.containsKey(k)) return true;
+    }
+    return false;
+  }
+
+  // ==========================
+  // Procesamiento JSON
+  // ==========================
+
+  void processTelemetry(String payload) {
+    try {
+      final Map<String, dynamic> d = jsonDecode(payload);
+
+      if (d.containsKey('status') &&
+          !d.containsKey('soil1_raw') &&
+          !d.containsKey('s1') &&
+          !d.containsKey('p')) {
+        if (!mounted) return;
+        setState(() {
+          lastAck = d['status'].toString();
+        });
+        return;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        if (hasAny(d, ['soil1_raw', 's1'])) {
+          soil1Raw = toInt(pick(d, ['soil1_raw', 's1']));
+        }
+        if (hasAny(d, ['soil2_raw', 's2'])) {
+          soil2Raw = toInt(pick(d, ['soil2_raw', 's2']));
+        }
+        if (hasAny(d, ['soil_avg_raw', 'sa'])) {
+          soilAvgRaw = toInt(pick(d, ['soil_avg_raw', 'sa']));
+        }
+        if (hasAny(d, ['uv_raw', 'uv'])) {
+          uvRaw = toInt(pick(d, ['uv_raw', 'uv']));
+        }
+        if (hasAny(d, ['wifi_rssi', 'rssi'])) {
+          wifiRssi = toInt(pick(d, ['wifi_rssi', 'rssi']));
+        }
+        if (hasAny(d, ['uptime_ms', 'up'])) {
+          uptimeMs = toInt(pick(d, ['uptime_ms', 'up']));
+        }
+        if (d.containsKey('lux')) {
+          lux = toDouble(d['lux']);
+        }
+        if (hasAny(d, ['temperature_c', 't'])) {
+          temperatureC = toDouble(pick(d, ['temperature_c', 't']));
+        }
+        if (hasAny(d, ['humidity_pct', 'h'])) {
+          humidityPct = toDouble(pick(d, ['humidity_pct', 'h']));
+        }
+
+        if (hasAny(d, ['pump_state', 'pump'])) {
+          pumpState = toBool(pick(d, ['pump_state', 'pump']));
+        }
+        if (hasAny(d, ['leds_state', 'leds'])) {
+          ledsState = toBool(pick(d, ['leds_state', 'leds']));
+        }
+        if (hasAny(d, ['modo_autonomo', 'auto'])) {
+          modoAutonomo = toBool(pick(d, ['modo_autonomo', 'auto']));
+        }
+        if (hasAny(d, ['soil1_dry', 'd1'])) {
+          soil1Dry = toBool(pick(d, ['soil1_dry', 'd1']));
+        }
+        if (hasAny(d, ['soil2_dry', 'd2'])) {
+          soil2Dry = toBool(pick(d, ['soil2_dry', 'd2']));
+        }
+        if (hasAny(d, ['any_soil_dry', 'dry'])) {
+          anySoilDry = toBool(pick(d, ['any_soil_dry', 'dry']));
+        }
+        if (hasAny(d, ['low_light', 'low'])) {
+          lowLight = toBool(pick(d, ['low_light', 'low']));
+        }
+        if (hasAny(d, ['auto_pump_running', 'ap'])) {
+          autoPumpRunning = toBool(pick(d, ['auto_pump_running', 'ap']));
+        }
+
+        if (hasAny(d, ['soil_dry_threshold', 'soil_thr'])) {
+          soilDryThreshold = toInt(pick(d, ['soil_dry_threshold', 'soil_thr']), fallback: soilDryThreshold);
+        }
+        if (hasAny(d, ['lux_low_threshold', 'lux_thr'])) {
+          luxLowThreshold = toDouble(pick(d, ['lux_low_threshold', 'lux_thr']), fallback: luxLowThreshold);
+        }
+        if (hasAny(d, ['pump_on_time_ms', 'pon'])) {
+          pumpOnTimeMs = toInt(pick(d, ['pump_on_time_ms', 'pon']), fallback: pumpOnTimeMs);
+        }
+        if (hasAny(d, ['pump_cooldown_ms', 'pcd'])) {
+          pumpCooldownMs = toInt(pick(d, ['pump_cooldown_ms', 'pcd']), fallback: pumpCooldownMs);
+        }
+        if (hasAny(d, ['current_hour', 'hour'])) {
+          currentHour = toInt(pick(d, ['current_hour', 'hour']), fallback: currentHour);
+        }
+        if (hasAny(d, ['current_minute', 'minute'])) {
+          currentMinute = toInt(pick(d, ['current_minute', 'minute']), fallback: currentMinute);
+        }
+        if (hasAny(d, ['night_mode_enabled', 'night'])) {
+          if (!configDirty) {
+            nightModeEnabled = toBool(pick(d, ['night_mode_enabled', 'night']), fallback: nightModeEnabled);
+          }
+        }
+        if (hasAny(d, ['night_start_hour', 'night_start'])) {
+          nightStartHour = toInt(pick(d, ['night_start_hour', 'night_start']), fallback: nightStartHour);
+        }
+        if (hasAny(d, ['night_end_hour', 'night_end'])) {
+          nightEndHour = toInt(pick(d, ['night_end_hour', 'night_end']), fallback: nightEndHour);
+        }
+        if (hasAny(d, ['night_time', 'is_night_time'])) {
+          nightTime = toBool(pick(d, ['night_time', 'is_night_time']), fallback: nightTime);
+        }
+        if (hasAny(d, ['leds_blocked_by_night', 'block_leds'])) {
+          ledsBlockedByNight = toBool(pick(d, ['leds_blocked_by_night', 'block_leds']), fallback: ledsBlockedByNight);
+        }
+
+        if (syncFieldsFromEsp32 && !configDirty) {
+          if (!soilFocus.hasFocus) {
+            soilThresholdController.text = soilDryThreshold.toString();
+          }
+          if (!luxFocus.hasFocus) {
+            luxThresholdController.text = luxLowThreshold.toStringAsFixed(0);
+          }
+          if (!pumpOnFocus.hasFocus) {
+            pumpOnController.text = formatSecondsFromMs(pumpOnTimeMs);
+          }
+          if (!pumpCooldownFocus.hasFocus) {
+            pumpCooldownController.text = formatHoursFromMs(pumpCooldownMs);
+          }
+          if (!currentHourFocus.hasFocus) {
+            currentHourController.text = currentHour.toString();
+          }
+          if (!currentMinuteFocus.hasFocus) {
+            currentMinuteController.text = currentMinute.toString();
+          }
+          if (!nightStartFocus.hasFocus) {
+            nightStartController.text = nightStartHour.toString();
+          }
+          if (!nightEndFocus.hasFocus) {
+            nightEndController.text = nightEndHour.toString();
+          }
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        lastAck = 'Error JSON BLE/MQTT: $e';
+      });
+    }
+  }
+
+  void processStatus(String payload) {
+    try {
+      final Map<String, dynamic> d = jsonDecode(payload);
+
+      if (d.containsKey('status') &&
+          !d.containsKey('soil1_raw') &&
+          !d.containsKey('s1')) {
+        if (!mounted) return;
+        setState(() {
+          lastAck = d['status'].toString();
+        });
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        lastAck = d['status']?.toString() ?? payload;
+      });
+
+      processTelemetry(payload);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        lastAck = payload;
+      });
+    }
+  }
+
+  int toInt(dynamic value, {int fallback = 0}) {
+    if (value == null) return fallback;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return int.tryParse(value.toString()) ?? fallback;
+  }
+
+  double toDouble(dynamic value, {double fallback = 0}) {
+    if (value == null) return fallback;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    return double.tryParse(value.toString()) ?? fallback;
+  }
+
+  // ==========================
+  // Enviar comandos
+  // ==========================
+
+  Future<void> sendCommand(String command) async {
+    if (activeMode == ConnectionMode.ble && isBleReady()) {
+      try {
+        // Detener polling para no mezclar lecturas GATT con escritura.
+        blePollTimer?.cancel();
+        blePollTimer = null;
+
+        while (bleOperationInProgress) {
+          await Future.delayed(const Duration(milliseconds: 60));
+        }
+        bleOperationInProgress = true;
+
+        final bytes = utf8.encode(command);
+
+        // En ESP32 se usa PROPERTY_WRITE_NR. Esta escritura no espera ACK GATT,
+        // evitando GATT_ERROR 133 por callbacks largos o supervisión de enlace.
+        await bleCommandChar!.write(
+          bytes,
+          withoutResponse: true,
+        );
+
+        bleOperationInProgress = false;
+
+        if (!mounted) return;
+        setState(() {
+          lastAck =
+              'BLE enviado: ${command.length > 60 ? '${command.substring(0, 60)}...' : command}';
+        });
+
+        await Future.delayed(const Duration(milliseconds: 700));
+        await readBlePackets();
+
+        blePollTimer?.cancel();
+        blePollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+          if (activeMode == ConnectionMode.ble && isBleReady()) {
+            await readBlePackets();
+          }
+        });
+        return;
+      } catch (e) {
+        bleOperationInProgress = false;
+        if (!mounted) return;
+        setState(() {
+          lastAck = 'Error BLE comando: $e';
+        });
+      }
+    }
+
+    if (activeMode == ConnectionMode.mqtt && isMqttConnected()) {
+      final builder = MqttClientPayloadBuilder();
+      builder.addString(command);
+
+      mqttClient!.publishMessage(
+        topicCommand,
+        MqttQos.atMostOnce,
+        builder.payload!,
+        retain: false,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        lastAck = 'MQTT enviado: ${command.length > 60 ? '${command.substring(0, 60)}...' : command}';
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      lastAck = 'Sin conexión activa';
+    });
+  }
+
+  String formatSecondsFromMs(int ms) {
+    final seconds = ms / 1000.0;
+    if (seconds == seconds.roundToDouble()) {
+      return seconds.toInt().toString();
+    }
+    return seconds.toStringAsFixed(2);
+  }
+
+  String formatHoursFromMs(int ms) {
+    final hours = ms / 3600000.0;
+    if (hours == hours.roundToDouble()) {
+      return hours.toInt().toString();
+    }
+    if (hours >= 0.1) {
+      return hours.toStringAsFixed(2);
+    }
+    return hours.toStringAsFixed(4);
+  }
+
+  int secondsInputToMs(String value, int fallbackMs) {
+    final seconds = double.tryParse(value.trim());
+    if (seconds == null || seconds < 0) return fallbackMs;
+    return (seconds * 1000).round();
+  }
+
+  int hoursInputToMs(String value, int fallbackMs) {
+    final hours = double.tryParse(value.trim());
+    if (hours == null || hours < 0) return fallbackMs;
+    return (hours * 3600000).round();
+  }
+
+  Future<void> sendConfig() async {
+    final int soilThr =
+        int.tryParse(soilThresholdController.text.trim()) ?? soilDryThreshold;
+    final double luxThr =
+        double.tryParse(luxThresholdController.text.trim()) ?? luxLowThreshold;
+    final int pumpOn = secondsInputToMs(pumpOnController.text, pumpOnTimeMs);
+    final int pumpCooldown = hoursInputToMs(
+      pumpCooldownController.text,
+      pumpCooldownMs,
+    );
+    final int hour = int.tryParse(currentHourController.text.trim()) ?? currentHour;
+    final int minute =
+        int.tryParse(currentMinuteController.text.trim()) ?? currentMinute;
+    final int nightStart =
+        int.tryParse(nightStartController.text.trim()) ?? nightStartHour;
+    final int nightEnd = int.tryParse(nightEndController.text.trim()) ?? nightEndHour;
+
+    final config = activeMode == ConnectionMode.ble
+        ? {
+            'cmd': 'SET_CONFIG',
+            'soil_thr': soilThr,
+            'lux_thr': luxThr,
+            'pon': pumpOn,
+            'pcd': pumpCooldown,
+            'hour': hour,
+            'minute': minute,
+            'night': nightModeEnabled,
+            'night_start': nightStart,
+            'night_end': nightEnd,
+          }
+        : {
+            'cmd': 'SET_CONFIG',
+            'soil_dry_threshold': soilThr,
+            'lux_low_threshold': luxThr,
+            'pump_on_time_ms': pumpOn,
+            'pump_cooldown_ms': pumpCooldown,
+            'current_hour': hour,
+            'current_minute': minute,
+            'night_mode_enabled': nightModeEnabled,
+            'night_start_hour': nightStart,
+            'night_end_hour': nightEnd,
+          };
+
+    await sendCommand(jsonEncode(config));
+
+    if (!mounted) return;
+    setState(() {
+      configDirty = false;
+      syncFieldsFromEsp32 = true;
+      lastAck = 'Configuración enviada';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    await sendCommand('STATUS');
+  }
+
+  void usePhoneTime() {
+    final now = DateTime.now();
+    setState(() {
+      currentHourController.text = now.hour.toString();
+      currentMinuteController.text = now.minute.toString();
+      markConfigDirty();
+    });
+  }
+
+  // ==========================
+  // UI
+  // ==========================
+
+  @override
+  Widget build(BuildContext context) {
+    final String riegoText = buildRiegoText();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Agrihome'),
+        centerTitle: true,
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await sendCommand('STATUS');
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(14),
+          children: [
+            connectionSection(),
+            const SizedBox(height: 12),
+            controlSection(),
+            const SizedBox(height: 12),
+            actuatorStateSection(riegoText),
+            const SizedBox(height: 12),
+            sensorSection(),
+            const SizedBox(height: 12),
+            configSection(),
+            const SizedBox(height: 12),
+            diagnosticSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget connectionSection() {
+    String modeText = 'Sin conexión';
+    if (activeMode == ConnectionMode.mqtt) modeText = 'Modo activo: MQTT';
+    if (activeMode == ConnectionMode.ble) modeText = 'Modo activo: Bluetooth BLE';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            sectionTitle('Estado de conexión'),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                activeMode == ConnectionMode.none ? Icons.cloud_off : Icons.cloud_done,
+                color: activeMode == ConnectionMode.none ? Colors.red : Colors.green,
+              ),
+              title: Text(modeText),
+              subtitle: Text('$connectionText\nÚltimo ACK: $lastAck'),
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: connectMqtt,
+                    icon: const Icon(Icons.wifi),
+                    label: const Text('MQTT'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: scanningBle ? null : connectBle,
+                    icon: const Icon(Icons.bluetooth),
+                    label: Text(scanningBle ? 'Buscando...' : 'BLE'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: disconnectBle,
+              icon: const Icon(Icons.bluetooth_disabled),
+              label: const Text('Desconectar BLE'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget controlSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            sectionTitle('Control'),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => sendCommand('PUMP_ON'),
+                    icon: const Icon(Icons.water),
+                    label: const Text('Bomba ON'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => sendCommand('PUMP_OFF'),
+                    icon: const Icon(Icons.water_drop_outlined),
+                    label: const Text('Bomba OFF'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => sendCommand('LEDS_ON'),
+                    icon: const Icon(Icons.lightbulb),
+                    label: const Text('LEDs ON'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => sendCommand('LEDS_OFF'),
+                    icon: const Icon(Icons.lightbulb_outline),
+                    label: const Text('LEDs OFF'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => sendCommand('AUTO_ON'),
+                    icon: const Icon(Icons.auto_mode),
+                    label: const Text('Auto ON'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => sendCommand('AUTO_OFF'),
+                    icon: const Icon(Icons.pan_tool),
+                    label: const Text('Auto OFF'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => sendCommand('STATUS'),
+              icon: const Icon(Icons.sync),
+              label: const Text('Solicitar estado'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget actuatorStateSection(String riegoText) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            sectionTitle('Estados de los actuadores'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                statusChip('Bomba', pumpState ? 'ON' : 'OFF', pumpState),
+                statusChip('LEDs', ledsState ? 'ON' : 'OFF', ledsState),
+                statusChip('Auto', modoAutonomo ? 'ON' : 'OFF', modoAutonomo),
+                statusChip('Riego', riegoText, anySoilDry),
+                statusChip('Modo noche', nightModeEnabled ? 'ON' : 'OFF', nightModeEnabled),
+                statusChip('Bloqueo LEDs', ledsBlockedByNight ? 'ON' : 'OFF', ledsBlockedByNight),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget statusChip(String title, String value, bool active) {
+    return Chip(
+      avatar: CircleAvatar(
+        backgroundColor: active ? Colors.green : Colors.grey,
+        radius: 6,
+      ),
+      label: Text('$title: $value'),
+    );
+  }
+
+  Widget sensorSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        sectionTitle('Sensores'),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 1.35,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+          children: [
+            sensorCard('Suelo 1', soil1Raw.toString(), 'RAW', Icons.grass),
+            sensorCard('Suelo 2', soil2Raw.toString(), 'RAW', Icons.grass),
+            sensorCard('Promedio', soilAvgRaw.toString(), 'RAW', Icons.eco),
+            sensorCard('Luz', lux.toStringAsFixed(1), 'lux', Icons.wb_sunny),
+            sensorCard('UV', uvRaw.toString(), 'RAW', Icons.light_mode),
+            sensorCard('Temperatura', temperatureC.toStringAsFixed(1), '°C', Icons.thermostat),
+            sensorCard('Humedad amb.', humidityPct.toStringAsFixed(1), '%', Icons.water_drop),
+            sensorCard('WiFi', wifiRssi.toString(), 'dBm', Icons.wifi),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget sensorCard(String title, String value, String unit, IconData icon) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.green),
+            const Spacer(),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(value, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.bold)),
+            Text(unit),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget configSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            sectionTitle('Parámetros a configurar'),
+            numberField(soilThresholdController, soilFocus, 'Umbral suelo seco', 'Ejemplo: 1000, 1500, 2300'),
+            const SizedBox(height: 10),
+            numberField(luxThresholdController, luxFocus, 'Umbral luz baja', 'Ejemplo: 50, 80, 100'),
+            const SizedBox(height: 10),
+            numberField(pumpOnController, pumpOnFocus, 'Tiempo bomba ON', 'Segundos. Ejemplo: 3'),
+            const SizedBox(height: 10),
+            numberField(pumpCooldownController, pumpCooldownFocus, 'Tiempo entre riegos', 'Horas. Ejemplo: 1'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: numberField(currentHourController, currentHourFocus, 'Hora actual', '0 a 23')),
+                const SizedBox(width: 8),
+                Expanded(child: numberField(currentMinuteController, currentMinuteFocus, 'Minuto actual', '0 a 59')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: usePhoneTime,
+              icon: const Icon(Icons.schedule),
+              label: const Text('Usar hora del celular'),
+            ),
+            const SizedBox(height: 10),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Modo noche'),
+              subtitle: const Text('Si está activo, bloquea LEDs automáticos dentro del horario configurado.'),
+              value: nightModeEnabled,
+              onChanged: (value) async {
+                setState(() {
+                  nightModeEnabled = value;
+                  markConfigDirty();
+                });
+                // El switch de modo noche se envía de inmediato para que
+                // Node-RED refleje el cambio en la siguiente telemetría.
+                await sendConfig();
+              },
+            ),
+            Row(
+              children: [
+                Expanded(child: numberField(nightStartController, nightStartFocus, 'Inicio noche', '0 a 23')),
+                const SizedBox(width: 8),
+                Expanded(child: numberField(nightEndController, nightEndFocus, 'Fin noche', '0 a 23')),
+              ],
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: sendConfig,
+              icon: const Icon(Icons.save),
+              label: const Text('Guardar configuración'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget numberField(TextEditingController controller, FocusNode focusNode, String label, String helper) {
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      onChanged: (_) => markConfigDirty(),
+      decoration: InputDecoration(
+        labelText: label,
+        helperText: helper,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget diagnosticSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            sectionTitle('Diagnóstico'),
+            diagnosticRow('Suelo 1 seco', soil1Dry.toString()),
+            diagnosticRow('Suelo 2 seco', soil2Dry.toString()),
+            diagnosticRow('Requiere riego', anySoilDry.toString()),
+            diagnosticRow('Poca luz', lowLight.toString()),
+            diagnosticRow('Bomba automática', autoPumpRunning.toString()),
+            diagnosticRow('Umbral suelo', soilDryThreshold.toString()),
+            diagnosticRow('Umbral luz', luxLowThreshold.toString()),
+            diagnosticRow('Hora ESP32', '${currentHour.toString().padLeft(2, '0')}:${currentMinute.toString().padLeft(2, '0')}'),
+            diagnosticRow('Modo noche', nightModeEnabled.toString()),
+            diagnosticRow('Horario noche', '$nightStartHour:00 → $nightEndHour:00'),
+            diagnosticRow('Está en horario noche', nightTime.toString()),
+            diagnosticRow('LEDs bloqueados', ledsBlockedByNight.toString()),
+            diagnosticRow('Bomba ON', '${formatSecondsFromMs(pumpOnTimeMs)} s'),
+            diagnosticRow('Tiempo entre riegos', '${formatHoursFromMs(pumpCooldownMs)} h'),
+            diagnosticRow('Uptime', '$uptimeMs ms'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget diagnosticRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  String buildRiegoText() {
+    if (modoAutonomo && anySoilDry && pumpState) return 'Regando';
+    if (modoAutonomo && anySoilDry && !pumpState) return 'Esperando ciclo';
+    if (modoAutonomo && !anySoilDry) return 'Sin riego';
+    return 'Manual';
+  }
+}
