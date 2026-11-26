@@ -1,0 +1,53 @@
+[
+    {
+        "id": "a06fff5391bed658",
+        "type": "mqtt in",
+        "z": "76351a76386589bf",
+        "name": "Telemetría Agrihome",
+        "topic": "agrihome/telemetry",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "9bb9b73269bce894",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 280,
+        "wires": [
+            [
+                "5dd70748a0747756",
+                "1eba9fb759909a78",
+                "d3d89316d3a043e3"
+            ]
+        ]
+    },
+    {
+        "id": "9bb9b73269bce894",
+        "type": "mqtt-broker",
+        "name": "Mosquitto Agrihome",
+        "broker": "IP en cuestion",
+        "port": "1883",
+        "clientid": "node-red-agrihome-v5",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]
