@@ -1,0 +1,61 @@
+digraph AgriHome {
+  graph [rankdir=LR, fontname="Arial", fontsize=13, nodesep=0.35, ranksep=0.7, bgcolor="white", pad=0.3, label="Diagrama de integración AgriHome (estado actual)", labelloc=t];
+  node  [shape=box, style="rounded,filled", fontname="Arial", fontsize=11, penwidth=1.2];
+  edge  [fontname="Arial", fontsize=9, color="#555555"];
+
+  subgraph cluster_energia {
+    label="Alimentación"; style="rounded,dashed"; color="#C0392B"; fontcolor="#C0392B";
+    PSU  [label="Fuente externa\n(V y A por documentar)", fillcolor="#F5B7B1"];
+    USB  [label="USB 5 V\n(ESP32-S3)", fillcolor="#F5B7B1"];
+  }
+
+  subgraph cluster_sens {
+    label="Sensores"; style="rounded"; color="#1E8449"; fontcolor="#1E8449";
+    S1  [label="Suelo capacitivo 1\nGPIO 4 · ADC1", fillcolor="#ABEBC6"];
+    S2  [label="Suelo capacitivo 2\nGPIO 6 · ADC1", fillcolor="#ABEBC6"];
+    UV  [label="GUVA-S12SD (UV)\nGPIO 5 · ADC1", fillcolor="#ABEBC6"];
+    DHT [label="DHT11 (T, HR)\nGPIO 7 · 1-wire", fillcolor="#ABEBC6"];
+    BH  [label="BH1750 (lux)\nI²C SDA 8 / SCL 9", fillcolor="#ABEBC6"];
+  }
+
+  MCU [label="ESP32-S3\nFirmware V14.1\nreglas · Preferences\nlógica 3.3 V", fillcolor="#AED6F1", fontsize=12, penwidth=2];
+
+  subgraph cluster_act {
+    label="Actuación"; style="rounded"; color="#B9770E"; fontcolor="#B9770E";
+    DRV  [label="Driver L298N\n(etapa de potencia)", fillcolor="#FAD7A0"];
+    PUMP [label="Bomba de agua", fillcolor="#FAD7A0"];
+    LED  [label="LEDs de iluminación\nGPIO 15", fillcolor="#FAD7A0"];
+  }
+
+  subgraph cluster_red {
+    label="Comunicación y supervisión"; labelloc=b; style="rounded"; color="#7D3C98"; fontcolor="#7D3C98";
+    MQ  [label="Mosquitto\nTCP/1883\nPC 192.168.1.80 (*)", fillcolor="#D7BDE2"];
+    NR  [label="Node-RED V15\nDashboard", fillcolor="#D7BDE2"];
+    APP [label="App Flutter\nmqtt_client · flutter_blue_plus", fillcolor="#D7BDE2"];
+  }
+
+  subgraph cluster_datos {
+    label="Datos e IA (offline)"; style="rounded"; color="#117A65"; fontcolor="#117A65";
+    CSV [label="agrihome_datos.csv\n31 columnas", fillcolor="#A3E4D7"];
+    IA  [label="Python · scikit-learn\nÁrbol de decisión", fillcolor="#A3E4D7"];
+  }
+
+  S1 -> MCU [label="analógica 0–3.3 V"];
+  S2 -> MCU [label="analógica 0–3.3 V"];
+  UV -> MCU [label="analógica"];
+  DHT -> MCU [label="digital"];
+  BH -> MCU [label="I²C"];
+  USB -> MCU [color="#C0392B", label="5 V"];
+  PSU -> DRV [color="#C0392B", label="V carga"];
+  MCU -> DRV [label="GPIO 12 (HIGH = ON)"];
+  DRV -> PUMP [color="#C0392B", label="potencia"];
+  MCU -> LED [label="GPIO 15 (HIGH = ON)"];
+  MCU -> MQ [dir=both, label="Wi-Fi / MQTT\ntelemetry, status ↑ (~1 s) · cmd ↓", color="#7D3C98", minlen=2];
+  MQ -> NR  [dir=both, color="#7D3C98", label="MQTT"];
+  MQ -> APP [dir=both, color="#7D3C98", label="MQTT (LAN)"];
+  MCU -> APP [dir=both, color="#2471A3", style=bold, xlabel="BLE GATT · Agrihome_BLE · MTU 185"];
+  NR -> CSV [label="nodo File"];
+  CSV -> IA [label="pandas"];
+
+  NOTE [shape=note, fillcolor="#FCF3CF", fontsize=9, label="Puntos críticos (*):\n• IP del broker: .81 en firmware/app vs .80 en PC\n• Mosquitto en «local only mode»\n• Etapa de potencia sin esquema validado\n• PUMP_ON manual sin tiempo máximo"];
+}
