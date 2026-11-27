@@ -1,53 +1,1311 @@
 [
-    {
-        "id": "a06fff5391bed658",
-        "type": "mqtt in",
-        "z": "76351a76386589bf",
-        "name": "Telemetría Agrihome",
-        "topic": "agrihome/telemetry",
-        "qos": "0",
-        "datatype": "json",
-        "broker": "9bb9b73269bce894",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 190,
-        "y": 280,
-        "wires": [
-            [
-                "5dd70748a0747756",
-                "1eba9fb759909a78",
-                "d3d89316d3a043e3"
-            ]
-        ]
-    },
-    {
-        "id": "9bb9b73269bce894",
-        "type": "mqtt-broker",
-        "name": "Mosquitto Agrihome",
-        "broker": "IP en cuestion",
-        "port": "1883",
-        "clientid": "node-red-agrihome-v5",
-        "autoConnect": true,
-        "usetls": false,
-        "protocolVersion": "4",
-        "keepalive": "60",
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
-    }
+  {
+    "id": "aghtab000000001",
+    "type": "tab",
+    "label": "Agrihome V15 - CSV",
+    "disabled": false,
+    "info": "Dashboard, comandos, configuración y registro CSV de AgriHome.\nCambia el host del broker en el nodo de configuración 'Mosquitto Agrihome'."
+  },
+  {
+    "id": "aghbroker000001",
+    "type": "mqtt-broker",
+    "name": "Mosquitto Agrihome",
+    "broker": "IP_DEL_BROKER",
+    "port": "1883",
+    "clientid": "node-red-agrihome-v15",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "aghuitab0000001",
+    "type": "ui_tab",
+    "name": "Agrihome",
+    "icon": "dashboard",
+    "order": 1,
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "aghgrpsen00000",
+    "type": "ui_group",
+    "name": "Sensores",
+    "tab": "aghuitab0000001",
+    "order": 1,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "aghgrpact00000",
+    "type": "ui_group",
+    "name": "Actuadores y estado",
+    "tab": "aghuitab0000001",
+    "order": 2,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "aghgrpcfg00000",
+    "type": "ui_group",
+    "name": "Configuración",
+    "tab": "aghuitab0000001",
+    "order": 3,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "aghgrpgra00000",
+    "type": "ui_group",
+    "name": "Gráficas",
+    "tab": "aghuitab0000001",
+    "order": 4,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "aghgrpcsv00000",
+    "type": "ui_group",
+    "name": "Registro CSV",
+    "tab": "aghuitab0000001",
+    "order": 5,
+    "disp": true,
+    "width": "6",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "aghmo0001",
+    "type": "mqtt out",
+    "name": "agrihome/cmd",
+    "topic": "agrihome/cmd",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "aghbroker000001",
+    "z": "aghtab000000001",
+    "x": 1250,
+    "y": 700,
+    "wires": []
+  },
+  {
+    "id": "aghg0002",
+    "type": "ui_gauge",
+    "name": "Suelo 1",
+    "group": "aghgrpsen00000",
+    "order": 1,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Suelo 1",
+    "label": "RAW",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 4095,
+    "colors": [
+      "#2ecc71",
+      "#f1c40f",
+      "#e74c3c"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "aghg0003",
+    "type": "ui_gauge",
+    "name": "Suelo 2",
+    "group": "aghgrpsen00000",
+    "order": 2,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Suelo 2",
+    "label": "RAW",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 4095,
+    "colors": [
+      "#2ecc71",
+      "#f1c40f",
+      "#e74c3c"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "aghg0004",
+    "type": "ui_gauge",
+    "name": "Suelo promedio",
+    "group": "aghgrpsen00000",
+    "order": 3,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Suelo promedio",
+    "label": "RAW",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 4095,
+    "colors": [
+      "#2ecc71",
+      "#f1c40f",
+      "#e74c3c"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "aghg0005",
+    "type": "ui_gauge",
+    "name": "Iluminación",
+    "group": "aghgrpsen00000",
+    "order": 4,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Iluminación",
+    "label": "lux",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 3000,
+    "colors": [
+      "#34495e",
+      "#f1c40f",
+      "#f39c12"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "aghg0006",
+    "type": "ui_gauge",
+    "name": "UV",
+    "group": "aghgrpsen00000",
+    "order": 5,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "UV",
+    "label": "RAW",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 4095,
+    "colors": [
+      "#9b59b6",
+      "#8e44ad",
+      "#6c3483"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "aghg0007",
+    "type": "ui_gauge",
+    "name": "Temperatura",
+    "group": "aghgrpsen00000",
+    "order": 6,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Temperatura",
+    "label": "°C",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 50,
+    "colors": [
+      "#3498db",
+      "#2ecc71",
+      "#e74c3c"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "aghg0008",
+    "type": "ui_gauge",
+    "name": "Humedad ambiental",
+    "group": "aghgrpsen00000",
+    "order": 7,
+    "width": 3,
+    "height": 3,
+    "gtype": "gage",
+    "title": "Humedad ambiental",
+    "label": "%",
+    "format": "{{value | number:1}}",
+    "min": 0,
+    "max": 100,
+    "colors": [
+      "#f39c12",
+      "#2ecc71",
+      "#3498db"
+    ],
+    "seg1": "",
+    "seg2": "",
+    "diff": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "aght0009",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 1,
+    "width": 3,
+    "height": 1,
+    "name": "Estado del suelo",
+    "label": "Estado del suelo",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "aght0010",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 2,
+    "width": 3,
+    "height": 1,
+    "name": "Estado de la luz",
+    "label": "Estado de la luz",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 360,
+    "wires": []
+  },
+  {
+    "id": "aght0011",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 3,
+    "width": 3,
+    "height": 1,
+    "name": "UV (señal relativa)",
+    "label": "UV (señal relativa)",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 400,
+    "wires": []
+  },
+  {
+    "id": "aght0012",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 4,
+    "width": 3,
+    "height": 1,
+    "name": "Wi-Fi RSSI",
+    "label": "Wi-Fi RSSI",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 440,
+    "wires": []
+  },
+  {
+    "id": "aght0013",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 5,
+    "width": 3,
+    "height": 1,
+    "name": "Hora ESP32 / noche",
+    "label": "Hora ESP32 / noche",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 480,
+    "wires": []
+  },
+  {
+    "id": "aghc0014",
+    "type": "ui_chart",
+    "name": "Humedad de suelo (RAW)",
+    "group": "aghgrpgra00000",
+    "order": 1,
+    "width": 6,
+    "height": 4,
+    "label": "Humedad de suelo (RAW)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Sin datos",
+    "dot": false,
+    "ymin": "0",
+    "ymax": "4095",
+    "removeOlder": "1",
+    "removeOlderPoints": "",
+    "removeOlderUnit": "3600",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#1f77b4",
+      "#ff7f0e",
+      "#2ca02c",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 520,
+    "wires": []
+  },
+  {
+    "id": "aghc0015",
+    "type": "ui_chart",
+    "name": "Iluminación (lux) y UV (RAW)",
+    "group": "aghgrpgra00000",
+    "order": 2,
+    "width": 6,
+    "height": 4,
+    "label": "Iluminación (lux) y UV (RAW)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Sin datos",
+    "dot": false,
+    "ymin": "",
+    "ymax": "",
+    "removeOlder": "1",
+    "removeOlderPoints": "",
+    "removeOlderUnit": "3600",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#f1c40f",
+      "#9b59b6",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 560,
+    "wires": []
+  },
+  {
+    "id": "aghc0016",
+    "type": "ui_chart",
+    "name": "Temperatura (°C) y humedad (%)",
+    "group": "aghgrpgra00000",
+    "order": 3,
+    "width": 6,
+    "height": 4,
+    "label": "Temperatura (°C) y humedad (%)",
+    "chartType": "line",
+    "legend": "true",
+    "xformat": "HH:mm:ss",
+    "interpolate": "linear",
+    "nodata": "Sin datos",
+    "dot": false,
+    "ymin": "",
+    "ymax": "",
+    "removeOlder": "1",
+    "removeOlderPoints": "",
+    "removeOlderUnit": "3600",
+    "cutout": 0,
+    "useOneColor": false,
+    "useUTC": false,
+    "colors": [
+      "#e74c3c",
+      "#3498db",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000",
+      "#000000"
+    ],
+    "outputs": 1,
+    "useDifferentColor": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 600,
+    "wires": []
+  },
+  {
+    "id": "aghs0017",
+    "type": "ui_switch",
+    "name": "Bomba",
+    "label": "Bomba",
+    "tooltip": "",
+    "group": "aghgrpact00000",
+    "order": 6,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "decouple": "true",
+    "topic": "",
+    "topicType": "str",
+    "style": "",
+    "onvalue": "PUMP_ON",
+    "onvalueType": "str",
+    "onicon": "",
+    "oncolor": "",
+    "offvalue": "PUMP_OFF",
+    "offvalueType": "str",
+    "officon": "",
+    "offcolor": "",
+    "animate": false,
+    "className": "",
+    "wires": [
+      [
+        "aghmo0001"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 660
+  },
+  {
+    "id": "aghs0018",
+    "type": "ui_switch",
+    "name": "LEDs",
+    "label": "LEDs",
+    "tooltip": "",
+    "group": "aghgrpact00000",
+    "order": 7,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "decouple": "true",
+    "topic": "",
+    "topicType": "str",
+    "style": "",
+    "onvalue": "LEDS_ON",
+    "onvalueType": "str",
+    "onicon": "",
+    "oncolor": "",
+    "offvalue": "LEDS_OFF",
+    "offvalueType": "str",
+    "officon": "",
+    "offcolor": "",
+    "animate": false,
+    "className": "",
+    "wires": [
+      [
+        "aghmo0001"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 700
+  },
+  {
+    "id": "aghs0019",
+    "type": "ui_switch",
+    "name": "Modo autónomo",
+    "label": "Modo autónomo",
+    "tooltip": "",
+    "group": "aghgrpact00000",
+    "order": 8,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "decouple": "true",
+    "topic": "",
+    "topicType": "str",
+    "style": "",
+    "onvalue": "AUTO_ON",
+    "onvalueType": "str",
+    "onicon": "",
+    "oncolor": "",
+    "offvalue": "AUTO_OFF",
+    "offvalueType": "str",
+    "officon": "",
+    "offcolor": "",
+    "animate": false,
+    "className": "",
+    "wires": [
+      [
+        "aghmo0001"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 740
+  },
+  {
+    "id": "aghb0020",
+    "type": "ui_button",
+    "name": "STATUS",
+    "group": "aghgrpact00000",
+    "order": 9,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "label": "Pedir STATUS",
+    "tooltip": "",
+    "color": "",
+    "bgcolor": "",
+    "className": "",
+    "icon": "",
+    "payload": "STATUS",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "wires": [
+      [
+        "aghmo0001"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 780
+  },
+  {
+    "id": "aght0021",
+    "type": "ui_text",
+    "group": "aghgrpact00000",
+    "order": 10,
+    "width": 3,
+    "height": 1,
+    "name": "Último ACK",
+    "label": "Último ACK",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 1250,
+    "y": 820,
+    "wires": []
+  },
+  {
+    "id": "aghf0022",
+    "type": "function",
+    "name": "Separar variables",
+    "func": "// Separa la telemetría JSON del ESP32 en salidas para el dashboard\nconst d = msg.payload || {};\nconst num = v => (v === undefined || v === null || v === '') ? null : Number(v);\nconst thr = num(d.soil_dry_threshold) ?? 1500;\nconst s1 = num(d.soil1_raw), s2 = num(d.soil2_raw), sa = num(d.soil_avg_raw);\nconst lux = num(d.lux), uv = num(d.uv_raw), t = num(d.temperature_c), h = num(d.humidity_pct);\n// Regla OR del firmware: seco si cualquier sensor supera el umbral (RAW > umbral)\nconst seco1 = s1 !== null && s1 > thr, seco2 = s2 !== null && s2 > thr;\nconst suelo = (seco1 || seco2) ? `SECO (S1:${seco1 ? 'seco' : 'ok'} · S2:${seco2 ? 'seco' : 'ok'})` : 'Húmedo';\nlet luz = 'Sin dato';\nif (lux !== null) luz = lux < 50 ? 'Muy oscuro' : lux < 500 ? 'Luz baja' : lux < 3000 ? 'Aceptable' : 'Buena luz';\nlet uvTxt = 'Sin dato';  // bandas de presentación, no índice UV calibrado\nif (uv !== null) uvTxt = uv < 300 ? 'Bajo' : uv < 1000 ? 'Moderado' : uv < 2000 ? 'Alto' : 'Muy alto';\nconst rssi = num(d.wifi_rssi);\nconst hh = String(d.current_hour ?? '--').padStart(2, '0'), mm = String(d.current_minute ?? '--').padStart(2, '0');\nconst noche = `${hh}:${mm} · ${d.night_time ? 'Noche' : 'Día'}${d.leds_blocked_by_night ? ' · LEDs bloqueados' : ''}`;\nconst m = (p, topic) => p === null ? null : { payload: p, topic };\nreturn [\n  m(s1), m(s2), m(sa), m(lux), m(uv), m(t), m(h),\n  { payload: suelo }, { payload: luz }, { payload: uvTxt },\n  { payload: rssi === null ? 'Sin dato' : `${rssi} dBm` }, { payload: noche },\n  [m(s1, 'Suelo 1'), m(s2, 'Suelo 2'), m(sa, 'Promedio')],\n  [m(lux, 'Lux'), m(uv, 'UV RAW')],\n  [m(t, 'Temperatura'), m(h, 'Humedad')],\n  { payload: d.pump_state ? 'PUMP_ON' : 'PUMP_OFF' },\n  { payload: d.leds_state ? 'LEDS_ON' : 'LEDS_OFF' },\n  { payload: d.modo_autonomo ? 'AUTO_ON' : 'AUTO_OFF' }\n];",
+    "outputs": 18,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aghg0002"
+      ],
+      [
+        "aghg0003"
+      ],
+      [
+        "aghg0004"
+      ],
+      [
+        "aghg0005"
+      ],
+      [
+        "aghg0006"
+      ],
+      [
+        "aghg0007"
+      ],
+      [
+        "aghg0008"
+      ],
+      [
+        "aght0009"
+      ],
+      [
+        "aght0010"
+      ],
+      [
+        "aght0011"
+      ],
+      [
+        "aght0012"
+      ],
+      [
+        "aght0013"
+      ],
+      [
+        "aghc0014"
+      ],
+      [
+        "aghc0015"
+      ],
+      [
+        "aghc0016"
+      ],
+      [
+        "aghs0017"
+      ],
+      [
+        "aghs0018"
+      ],
+      [
+        "aghs0019"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 560,
+    "y": 300
+  },
+  {
+    "id": "aghn0024",
+    "type": "ui_numeric",
+    "name": "Umbral de suelo seco (RAW)",
+    "label": "Umbral de suelo seco (RAW)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 1,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "soil_dry_threshold",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 0,
+    "max": 4095,
+    "step": 10,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 880,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghn0025",
+    "type": "ui_numeric",
+    "name": "Umbral de baja luz (lux)",
+    "label": "Umbral de baja luz (lux)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 2,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "lux_low_threshold",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 0,
+    "max": 10000,
+    "step": 10,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 920,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghn0026",
+    "type": "ui_numeric",
+    "name": "Tiempo de bomba (s)",
+    "label": "Tiempo de bomba (s)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 3,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "pump_on_s",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 0.1,
+    "max": 20,
+    "step": 0.5,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 960,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghn0027",
+    "type": "ui_numeric",
+    "name": "Cooldown entre riegos (s)",
+    "label": "Cooldown entre riegos (s)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 4,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "pump_cooldown_s",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 1,
+    "max": 120,
+    "step": 1,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1000,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghn0028",
+    "type": "ui_numeric",
+    "name": "Inicio de noche (h)",
+    "label": "Inicio de noche (h)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 5,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "night_start_hour",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 0,
+    "max": 23,
+    "step": 1,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1040,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghn0029",
+    "type": "ui_numeric",
+    "name": "Fin de noche (h)",
+    "label": "Fin de noche (h)",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 6,
+    "width": 6,
+    "height": 1,
+    "wrap": false,
+    "passthru": false,
+    "topic": "night_end_hour",
+    "topicType": "str",
+    "format": "{{value}}",
+    "min": 0,
+    "max": 23,
+    "step": 1,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1080,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghs0030",
+    "type": "ui_switch",
+    "name": "Modo noche",
+    "label": "Modo noche",
+    "tooltip": "",
+    "group": "aghgrpcfg00000",
+    "order": 7,
+    "width": 6,
+    "height": 1,
+    "passthru": false,
+    "decouple": "true",
+    "topic": "night_mode_enabled",
+    "topicType": "str",
+    "style": "",
+    "onvalue": "true",
+    "onvalueType": "bool",
+    "onicon": "",
+    "oncolor": "",
+    "offvalue": "false",
+    "offvalueType": "bool",
+    "officon": "",
+    "offcolor": "",
+    "animate": false,
+    "className": "",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1120,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghb0031",
+    "type": "ui_button",
+    "name": "Sincronizar hora",
+    "group": "aghgrpcfg00000",
+    "order": 8,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "label": "Sincronizar hora",
+    "tooltip": "Envía la hora de la PC con Node-RED",
+    "color": "",
+    "bgcolor": "",
+    "className": "",
+    "icon": "",
+    "payload": "",
+    "payloadType": "date",
+    "topic": "sync_time",
+    "topicType": "str",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1160,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghb0032",
+    "type": "ui_button",
+    "name": "Guardar parámetros",
+    "group": "aghgrpcfg00000",
+    "order": 9,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "label": "Guardar parámetros",
+    "tooltip": "",
+    "color": "",
+    "bgcolor": "",
+    "className": "",
+    "icon": "",
+    "payload": "",
+    "payloadType": "str",
+    "topic": "save",
+    "topicType": "str",
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1200,
+    "wires": [
+      [
+        "aghf0023"
+      ]
+    ]
+  },
+  {
+    "id": "aghf0023",
+    "type": "function",
+    "name": "Enviar configuración",
+    "func": "// Guarda los cambios del dashboard y construye SET_CONFIG.\n// Los tiempos se capturan en segundos y el firmware los recibe en milisegundos.\nconst cfg = flow.get('cfg') || {};\nconst t = msg.topic;\nif (t === 'save' || t === 'sync_time' || t === 'night_mode_enabled') {\n  if (t === 'night_mode_enabled') cfg.night_mode_enabled = !!msg.payload;\n  if (t === 'sync_time') { const now = new Date(); cfg.current_hour = now.getHours(); cfg.current_minute = now.getMinutes(); }\n  flow.set('cfg', cfg);\n  const out = { cmd: 'SET_CONFIG' };\n  const map = { soil_dry_threshold: 'soil_dry_threshold', lux_low_threshold: 'lux_low_threshold',\n                night_start_hour: 'night_start_hour', night_end_hour: 'night_end_hour', night_mode_enabled: 'night_mode_enabled' };\n  for (const k in map) if (cfg[k] !== undefined) out[map[k]] = cfg[k];\n  if (cfg.pump_on_s !== undefined) out.pump_on_time_ms = Math.round(cfg.pump_on_s * 1000);\n  if (cfg.pump_cooldown_s !== undefined) out.pump_cooldown_ms = Math.round(cfg.pump_cooldown_s * 1000);\n  if (t === 'sync_time') { out.current_hour = cfg.current_hour; out.current_minute = cfg.current_minute; }\n  node.status({ fill: 'green', shape: 'dot', text: 'SET_CONFIG enviado ' + new Date().toLocaleTimeString() });\n  return { payload: JSON.stringify(out) };\n}\ncfg[t] = msg.payload;\nflow.set('cfg', cfg);\nnode.status({ fill: 'yellow', shape: 'ring', text: 'Cambios sin guardar' });\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aghmo0001"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 1250,
+    "y": 1000
+  },
+  {
+    "id": "aghf0033",
+    "type": "function",
+    "name": "Actualizar parámetros",
+    "func": "// Toma los parámetros confirmados por el ESP32 (agrihome/status) y actualiza el dashboard\nconst d = msg.payload || {};\nconst cfg = flow.get('cfg') || {};\nconst set = (k, v) => { if (v !== undefined && v !== null) cfg[k] = v; return v; };\nconst soil = set('soil_dry_threshold', d.soil_dry_threshold);\nconst lux = set('lux_low_threshold', d.lux_low_threshold);\nconst pon = set('pump_on_s', d.pump_on_time_ms !== undefined ? d.pump_on_time_ms / 1000 : undefined);\nconst pcd = set('pump_cooldown_s', d.pump_cooldown_ms !== undefined ? d.pump_cooldown_ms / 1000 : undefined);\nconst ns = set('night_start_hour', d.night_start_hour);\nconst ne = set('night_end_hour', d.night_end_hour);\nconst nm = set('night_mode_enabled', d.night_mode_enabled);\nflow.set('cfg', cfg);\nconst m = v => v === undefined ? null : { payload: v };\nreturn [m(soil), m(lux), m(pon), m(pcd), m(ns), m(ne), m(nm), { payload: d.status || '—' }];",
+    "outputs": 8,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aghn0024"
+      ],
+      [
+        "aghn0025"
+      ],
+      [
+        "aghn0026"
+      ],
+      [
+        "aghn0027"
+      ],
+      [
+        "aghn0028"
+      ],
+      [
+        "aghn0029"
+      ],
+      [
+        "aghs0030"
+      ],
+      [
+        "aght0021"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 560,
+    "y": 900
+  },
+  {
+    "id": "aght0034",
+    "type": "ui_text",
+    "group": "aghgrpcsv00000",
+    "order": 1,
+    "width": 6,
+    "height": 1,
+    "name": "Estado del registro",
+    "label": "Estado del registro",
+    "format": "{{msg.payload}}",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": "",
+    "color": "#000000",
+    "z": "aghtab000000001",
+    "x": 1250,
+    "y": 1360,
+    "wires": []
+  },
+  {
+    "id": "aghw0035",
+    "type": "file",
+    "name": "agrihome_datos.csv",
+    "filename": "agrihome_datos.csv",
+    "filenameType": "str",
+    "appendNewline": true,
+    "createDir": true,
+    "overwriteFile": "false",
+    "encoding": "utf8",
+    "z": "aghtab000000001",
+    "x": 1250,
+    "y": 1320,
+    "wires": []
+  },
+  {
+    "id": "aghf0036",
+    "type": "function",
+    "name": "Preparar CSV mediciones",
+    "func": "// Prepara una fila CSV por muestra (31 columnas). Escribe el encabezado una sola vez.\nconst COLS = [\"timestamp_iso\", \"soil1_raw\", \"soil2_raw\", \"soil_avg_raw\", \"lux\", \"uv_raw\", \"temperature_c\", \"humidity_pct\", \"pump_state\", \"leds_state\", \"modo_autonomo\", \"soil1_dry\", \"soil2_dry\", \"any_soil_dry\", \"low_light\", \"auto_pump_running\", \"soil_dry_threshold\", \"lux_low_threshold\", \"pump_on_time_ms\", \"pump_cooldown_ms\", \"current_hour\", \"current_minute\", \"night_mode_enabled\", \"night_start_hour\", \"night_end_hour\", \"night_time\", \"leds_blocked_by_night\", \"wifi_rssi\", \"mqtt_connected\", \"ble_connected\", \"uptime_ms\"];\nconst intervalo = (flow.get('csv_interval_s') ?? 1) * 1000;  // 1 s = tiempo real; 30 s = larga duración\nconst ahora = Date.now();\nif (ahora - (flow.get('csv_last_ms') || 0) < intervalo - 50) return null;\nflow.set('csv_last_ms', ahora);\nconst d = Object.assign({}, msg.payload, { timestamp_iso: new Date(ahora).toISOString() });\nconst esc = v => {\n  if (v === undefined || v === null) return '';\n  const s = String(v);\n  return /[\",\\n\\r]/.test(s) ? '\"' + s.replace(/\"/g, '\"\"') + '\"' : s;\n};\nconst fila = COLS.map(c => esc(d[c])).join(',');\nlet salida = fila;\nif (!flow.get('agrihome_csv_header_written')) {\n  salida = COLS.join(',') + '\\n' + fila;\n  flow.set('agrihome_csv_header_written', true);\n}\nconst n = (flow.get('csv_rows') || 0) + 1;\nflow.set('csv_rows', n);\nnode.status({ fill: 'green', shape: 'dot', text: n + ' filas' });\nreturn [{ payload: salida }, { payload: `Grabando · ${n} filas · cada ${intervalo / 1000} s` }];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aghw0035"
+      ],
+      [
+        "aght0034"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 560,
+    "y": 1320
+  },
+  {
+    "id": "aghf0037",
+    "type": "function",
+    "name": "Reiniciar encabezado",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "func": "flow.set('agrihome_csv_header_written', false);\nflow.set('csv_rows', 0);\nreturn { payload: 'El siguiente registro escribirá el encabezado' };",
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aght0034"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1400
+  },
+  {
+    "id": "aghb0038",
+    "type": "ui_button",
+    "name": "Encabezado CSV",
+    "group": "aghgrpcsv00000",
+    "order": 2,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "label": "Encabezado CSV",
+    "tooltip": "Úsalo al iniciar un archivo nuevo",
+    "color": "",
+    "bgcolor": "",
+    "className": "",
+    "icon": "",
+    "payload": "",
+    "payloadType": "str",
+    "topic": "",
+    "topicType": "str",
+    "wires": [
+      [
+        "aghf0037"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 560,
+    "y": 1400
+  },
+  {
+    "id": "aghf0039",
+    "type": "function",
+    "name": "Guardar intervalo",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "func": "flow.set('csv_interval_s', Number(msg.payload));\nreturn { payload: 'Intervalo de registro: ' + msg.payload + ' s' };",
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "aght0034"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 900,
+    "y": 1440
+  },
+  {
+    "id": "aghd0040",
+    "type": "ui_dropdown",
+    "name": "Intervalo",
+    "label": "Intervalo de registro",
+    "tooltip": "",
+    "place": "1 s (tiempo real)",
+    "group": "aghgrpcsv00000",
+    "order": 3,
+    "width": 3,
+    "height": 1,
+    "passthru": false,
+    "multiple": false,
+    "topic": "csv_interval",
+    "topicType": "str",
+    "className": "",
+    "options": [
+      {
+        "label": "1 s (tiempo real)",
+        "value": 1,
+        "type": "num"
+      },
+      {
+        "label": "30 s (larga duración)",
+        "value": 30,
+        "type": "num"
+      },
+      {
+        "label": "60 s",
+        "value": 60,
+        "type": "num"
+      }
+    ],
+    "payload": "",
+    "wires": [
+      [
+        "aghf0039"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 560,
+    "y": 1440
+  },
+  {
+    "id": "aghmi0041",
+    "type": "mqtt in",
+    "name": "Telemetría Agrihome",
+    "topic": "agrihome/telemetry",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "aghbroker000001",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "aghf0022",
+        "aghf0036"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 190,
+    "y": 300
+  },
+  {
+    "id": "aghmi0042",
+    "type": "mqtt in",
+    "name": "Estado / ACK Agrihome",
+    "topic": "agrihome/status",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "aghbroker000001",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "aghf0033",
+        "aghf0022"
+      ]
+    ],
+    "z": "aghtab000000001",
+    "x": 190,
+    "y": 900
+  },
+  {
+    "id": "aghcm0043",
+    "type": "comment",
+    "name": "Antes de usar: cambiar IP_DEL_BROKER en el nodo 'Mosquitto Agrihome'",
+    "info": "Requiere node-red-dashboard. El dashboard queda en http://<host>:1880/ui",
+    "wires": [],
+    "z": "aghtab000000001",
+    "x": 260,
+    "y": 40
+  }
 ]
